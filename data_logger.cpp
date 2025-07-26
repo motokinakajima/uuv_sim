@@ -30,14 +30,17 @@ void DataLogger::log_timestep(double time, const std::vector<Agent*>& agents) {
     for (size_t j = 0; j < agents.size(); j++) {
         Agent* agent = agents[j];
         Pos2 pos = agent->get_position();
-        Vec2 vel = agent->get_velocity();
+        Vec2 vel = agent->get_current_velocity();
+        Vec2 acc = agent->get_acceleration();
         
         file << "          {\n";
         file << "            \"id\": " << agent->id << ",\n";
         file << "            \"x\": " << pos.getX() << ",\n";
         file << "            \"y\": " << pos.getY() << ",\n";
         file << "            \"vx\": " << vel.getX() << ",\n";
-        file << "            \"vy\": " << vel.getY() << "\n";
+        file << "            \"vy\": " << vel.getY() << ",\n";
+        file << "            \"ax\": " << acc.getX() << ",\n";
+        file << "            \"ay\": " << acc.getY() << "\n";
         file << "          }";
         
         if (j < agents.size() - 1) {

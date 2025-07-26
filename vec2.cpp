@@ -1,4 +1,5 @@
 #include "vec2.h"
+#include <cmath>
 
 // Constructors
 Vec2::Vec2() : x(0.0f), y(0.0f) {
@@ -48,4 +49,8 @@ float Vec2::dot(const Vec2& other) const {
 
 float Vec2::cross(const Vec2& other) const {
     return x * other.y - y * other.x;
+}
+
+float Vec2::len() {
+    return std::sqrt( x * x + y * y );
 }

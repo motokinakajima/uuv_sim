@@ -23,6 +23,8 @@ public:
     float dot(const Vec2& other) const;
     float cross(const Vec2& other) const;
 
+    float len();
+
 private:
     float x;
     float y;

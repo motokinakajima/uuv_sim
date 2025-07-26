@@ -8,27 +8,50 @@ Agent::Agent(const int id) { this->id = id; }
 Agent::Agent(const int id, const Pos2& position, const Vec2& velocity) {
     this->id = id;
     this->position = position;
-    this->velocity = velocity;
+    this->current_velocity = velocity;
+}
+
+void Agent::update_velocity(double delta_t) {
+    current_velocity = current_velocity + (acceleration * delta_t);
+    double vel_len = current_velocity.len();
+    if (vel_len > max_velocity) current_velocity = current_velocity * (max_velocity / vel_len);
 }
 
 void Agent::update_position(double delta_t) {
-    position = position + (velocity * delta_t);
+    update_velocity(delta_t);
+    position = position + (current_velocity * delta_t);
 }
 
 Pos2 Agent::get_position() {
     return position;
 }
 
-Vec2 Agent::get_velocity() {
-    return velocity;
+Vec2 Agent::get_current_velocity() {
+    return current_velocity;
+}
+
+Vec2 Agent::get_acceleration() {
+    return acceleration;
 }
 
 void Agent::set_position(const Pos2& position) {
     this->position = position;
 }
 
-void Agent::set_velocity(const Vec2& velocity) {
-    this->velocity = velocity;
+void Agent::set_current_velocity(const Vec2& velocity) {
+    this->current_velocity = velocity;
+}
+
+void Agent::set_acceleration(const Vec2& acceleration) {
+    this->acceleration = acceleration;
+}
+
+double Agent::get_max_velocity() {
+    return max_velocity;
+}
+
+void Agent::set_max_velocity(const double max_val) {
+    max_velocity = max_val;
 }
 
 double Agent::get_field_value(const Field& field) {
@@ -38,9 +61,9 @@ double Agent::get_field_value(const Field& field) {
 void Agent::update_with_world(const WorldState& world, double delta_t) {
     update_neighbors(world);
     
-    Vec2 desiredVelocity = make_decision();
+    Vec2 appliedForce = make_decision();
     
-    velocity = desiredVelocity;
+    acceleration = appliedForce;
     update_position(delta_t);
 }
 
@@ -78,15 +101,10 @@ Vec2 Agent::make_decision() {
             seek_low_field_force = seek_low_field_force + attraction;
         }
     }
+
+    Vec2 acc = avoidance_force * 2.0f + seek_low_field_force;
     
-    Vec2 new_velocity = velocity + avoidance_force * 2.0f + seek_low_field_force;
-    
-    float speed = std::sqrt(new_velocity.dot(new_velocity));
-    if (speed > 5.0f) {
-        new_velocity = new_velocity * (5.0f / speed);
-    }
-    
-    return new_velocity;
+    return acc;
 }
 
 void Agent::update_neighbors(const WorldState& world) {
