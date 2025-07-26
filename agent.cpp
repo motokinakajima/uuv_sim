@@ -35,40 +35,64 @@ double Agent::get_field_value(const Field& field) {
     return field.get_scalar(position);
 }
 
-// NEW METHOD: Agent updates itself based on world knowledge
 void Agent::update_with_world(const WorldState& world, double delta_t) {
     update_neighbors(world);
     
-    Vec2 desiredVelocity = make_decision(world);
+    Vec2 desiredVelocity = make_decision();
     
     velocity = desiredVelocity;
     update_position(delta_t);
 }
 
 
-Vec2 Agent::make_decision(const WorldState& world) {
-    Vec2 desiredVelocity = velocity;  // Start with current velocity
+//temporal
+Vec2 Agent::make_decision() {
+    if (neighbor_infos.empty()) {
+        return Vec2(0.1f, 0.1f);
+    }
     
-    // Simple behavior: Move away from the field gradient
-    double fieldHere = world.field->get_scalar(position);
-    double fieldRight = world.field->get_scalar(Pos2(position.getX() + 1, position.getY()));
-    double fieldUp = world.field->get_scalar(Pos2(position.getX(), position.getY() + 1));
+    Vec2 avoidance_force(0, 0);
+    Vec2 seek_low_field_force(0, 0);
     
-    // Calculate gradient (direction of steepest increase)
-    Vec2 gradient(fieldRight - fieldHere, fieldUp - fieldHere);
+    NeighborInfo self_info;
+    for (const auto& neighbor : neighbor_infos) {
+        if (neighbor.agent_id == id) {
+            self_info = neighbor;
+            break;
+        }
+    }
     
-    // Move against the gradient (towards lower field values)
-    desiredVelocity = desiredVelocity - gradient * 0.1f;
+    for (const auto& neighbor : neighbor_infos) {
+        if (neighbor.agent_id == id) continue;
+        
+        Vec2 direction = neighbor.relative_position;
+        float distance = std::sqrt(direction.dot(direction));
+        
+        if (distance < 20.0f) {
+            Vec2 repulsion = direction * (-1.0f / (distance + 0.1f));
+            avoidance_force = avoidance_force + repulsion;
+        }
+        
+        if (neighbor.field_val < self_info.field_val) {
+            Vec2 attraction = direction * (0.3f / (distance + 1.0f));
+            seek_low_field_force = seek_low_field_force + attraction;
+        }
+    }
     
-    return desiredVelocity;
+    Vec2 new_velocity = velocity + avoidance_force * 2.0f + seek_low_field_force;
+    
+    float speed = std::sqrt(new_velocity.dot(new_velocity));
+    if (speed > 5.0f) {
+        new_velocity = new_velocity * (5.0f / speed);
+    }
+    
+    return new_velocity;
 }
 
 void Agent::update_neighbors(const WorldState& world) {
     neighbor_infos.clear();
     
     for (Agent* other : world.allAgents) {
-        if (other == this) continue;
-
         Vec2 relative_pos = other->get_position() - position;
         double other_field_val = world.field->get_scalar(other->get_position());
 

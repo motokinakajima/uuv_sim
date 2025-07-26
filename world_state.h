@@ -6,11 +6,10 @@
 #include "field.h"
 
 struct WorldState {
-    std::vector<Agent*> allAgents;  // Pointers to all agents in simulation
-    Field* field;                   // Pointer to the scalar field
-    double currentTime;             // Current simulation time
-    
-    // Constructor
+    std::vector<Agent*> allAgents;
+    Field* field;
+    double currentTime;
+
     WorldState(std::vector<Agent*> agents, Field* f, double time) 
         : allAgents(agents), field(f), currentTime(time) {}
 };

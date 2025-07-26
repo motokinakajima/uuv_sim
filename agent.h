@@ -32,7 +32,7 @@ private:
 
     std::vector<NeighborInfo> neighbor_infos;
 
-    Vec2 make_decision(const WorldState& world);
+    Vec2 make_decision();
     void update_neighbors(const WorldState& world);
 };
 

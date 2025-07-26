@@ -1,16 +1,31 @@
 #include "event_controller.h"
+#include "constants.h"
 #include "world_state.h"
+#include "data_logger.h"
+#include <string>
 #include <vector>
 
 EventController::EventController() = default;
 
-void EventController::proceed_step() {
-    cur_t += delta_t;
+void EventController::step() {
+    cur_t += DELTA_T;
     update_state();
 }
 
 void EventController::run() {
-    return;
+    while (cur_t < END_T) {
+        step();
+    }
+}
+
+void EventController::run_with_logger(std::string filename) {
+    DataLogger logger(filename);
+    logger.start_simulation(*this->field);
+    while (cur_t < END_T) {
+        logger.log_timestep(cur_t, agents);
+        step();
+    }
+    logger.finish_simulation();
 }
 
 void EventController::stop() {
@@ -22,14 +37,13 @@ double EventController::get_t() {
 }
 
 void EventController::update_state() {
-    // This is where you'll coordinate everything!
-    // For now, just a placeholder showing the structure
-    
-    // Example of how this would work:
-    // 1. Create WorldState with current agents, field, and time
-    // 2. Let each agent update itself based on WorldState
-    // 3. Handle any global simulation logic
-    
-    return;
+    WorldState state = WorldState(agents, field, cur_t);
+
+    for (Agent* agent : agents) {
+        agent->update_with_world(state, DELTA_T);
+    }
 }
 
+void EventController::add_agent(Agent* agent) {
+    agents.push_back(agent);
+}
