@@ -1,10 +1,12 @@
 #include "agent.h"
 #include "world_state.h"
+#include "neighbor_info.h"
 #include <cmath>
 
-Agent::Agent() = default;
+Agent::Agent(const int id) { this->id = id; }
 
-Agent::Agent(const Pos2& position, const Vec2& velocity) {
+Agent::Agent(const int id, const Pos2& position, const Vec2& velocity) {
+    this->id = id;
     this->position = position;
     this->velocity = velocity;
 }
@@ -29,46 +31,28 @@ void Agent::set_velocity(const Vec2& velocity) {
     this->velocity = velocity;
 }
 
+double Agent::get_field_value(const Field& field) {
+    return field.get_scalar(position);
+}
+
 // NEW METHOD: Agent updates itself based on world knowledge
 void Agent::update_with_world(const WorldState& world, double delta_t) {
-    // Agent perceives its environment
-    auto nearbyAgents = find_nearby_agents(world, 50.0);  // Look within 50 units
-    double fieldValue = world.field->get_scalar(position.getX(), position.getY());
+    update_neighbors(world);
     
-    // Agent makes intelligent decision
     Vec2 desiredVelocity = make_decision(world);
     
-    // Agent updates itself
     velocity = desiredVelocity;
     update_position(delta_t);
 }
 
-// Agent's intelligence: Find nearby agents
-std::vector<Agent*> Agent::find_nearby_agents(const WorldState& world, double radius) {
-    std::vector<Agent*> nearby;
-    
-    for (Agent* other : world.allAgents) {
-        if (other == this) continue;  // Don't include myself
-        
-        // Calculate distance
-        Vec2 diff = other->get_position() - position;
-        double distance = std::sqrt(diff.dot(diff));  // sqrt(x²+y²)
-        
-        if (distance <= radius) {
-            nearby.push_back(other);
-        }
-    }
-    return nearby;
-}
 
-// Agent's intelligence: Make decisions based on what it perceives
 Vec2 Agent::make_decision(const WorldState& world) {
     Vec2 desiredVelocity = velocity;  // Start with current velocity
     
     // Simple behavior: Move away from the field gradient
-    double fieldHere = world.field->get_scalar(position.getX(), position.getY());
-    double fieldRight = world.field->get_scalar(position.getX() + 1, position.getY());
-    double fieldUp = world.field->get_scalar(position.getX(), position.getY() + 1);
+    double fieldHere = world.field->get_scalar(position);
+    double fieldRight = world.field->get_scalar(Pos2(position.getX() + 1, position.getY()));
+    double fieldUp = world.field->get_scalar(Pos2(position.getX(), position.getY() + 1));
     
     // Calculate gradient (direction of steepest increase)
     Vec2 gradient(fieldRight - fieldHere, fieldUp - fieldHere);
@@ -77,4 +61,22 @@ Vec2 Agent::make_decision(const WorldState& world) {
     desiredVelocity = desiredVelocity - gradient * 0.1f;
     
     return desiredVelocity;
+}
+
+void Agent::update_neighbors(const WorldState& world) {
+    neighbor_infos.clear();
+    
+    for (Agent* other : world.allAgents) {
+        if (other == this) continue;
+
+        Vec2 relative_pos = other->get_position() - position;
+        double other_field_val = world.field->get_scalar(other->get_position());
+
+        NeighborInfo neighbor_info;
+        neighbor_info.agent_id = other->id;
+        neighbor_info.relative_position = relative_pos;
+        neighbor_info.field_val = other_field_val;
+        
+        neighbor_infos.push_back(neighbor_info);
+    }
 }

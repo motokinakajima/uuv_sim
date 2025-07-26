@@ -3,14 +3,18 @@
 
 #include <vector>
 #include "vec2.h"
+#include "field.h"
+#include "neighbor_info.h"
 
 // Forward declaration to avoid circular includes
 struct WorldState;
 
 class Agent {
 public:
-    Agent();
-    Agent(const Pos2& position, const Vec2& velocity);
+    int id;
+
+    Agent(const int id);
+    Agent(const int id, const Pos2& position, const Vec2& velocity);
 
     void update_position(double delta_t);
     void update_with_world(const WorldState& world, double delta_t);
@@ -20,13 +24,16 @@ public:
     void set_position(const Pos2& position);
     void set_velocity(const Vec2& velocity);
 
+    double get_field_value(const Field& field);
+
 private:
     Pos2 position;
     Vec2 velocity;
-    
-    // Agent's intelligence methods
-    std::vector<Agent*> find_nearby_agents(const WorldState& world, double radius = 50.0);
+
+    std::vector<NeighborInfo> neighbor_infos;
+
     Vec2 make_decision(const WorldState& world);
+    void update_neighbors(const WorldState& world);
 };
 
 #endif // UUV_SIM_AGENT_H

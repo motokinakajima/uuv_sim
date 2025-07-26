@@ -1,10 +1,14 @@
 #ifndef FIELD_H
 #define FIELD_H
 
+#include "vec2.h"
+
 class Field {
 public:
     Field(double k1, double k2, double k3, double k4);
-    double get_scalar(double x, double y);
+
+    double get_scalar(double x, double y) const;
+    double get_scalar(const Pos2& pos) const;
 
 private:
     // f(x,y) = k1*x^2 + k2*xy + k3*y^2 + k4
