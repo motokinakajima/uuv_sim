@@ -28,4 +28,7 @@ private:
     float y;
 };
 
+// Type alias for clarity in agent-based simulation
+using Pos2 = Vec2;
+
 #endif // UUV_SIM_VEC2_H
