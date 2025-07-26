@@ -1,0 +1,48 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "CMake: Configure",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-S",
+                ".",
+                "-B",
+                "build"
+            ],
+            "group": "build",
+            "detail": "Configure CMake project"
+        },
+        {
+            "label": "CMake: Build",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "build"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "dependsOn": "CMake: Configure",
+            "detail": "Build the CMake project",
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "Run uuv_sim",
+            "type": "shell",
+            "command": "${workspaceFolder}/build/Debug/uuv_sim.exe",
+            "group": "test",
+            "dependsOn": "CMake: Build",
+            "detail": "Run the uuv_sim executable",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            }
+        }
+    ]
+}
