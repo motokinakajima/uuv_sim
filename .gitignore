@@ -58,3 +58,4 @@ CTestTestfile.cmake
 _deps
 
 *.json
+simulation_data.json

@@ -13,7 +13,25 @@ DataLogger::~DataLogger() {
 void DataLogger::start_simulation(const Field& field) {
     file << "{\n";
     file << "  \"simulation\": {\n";
-    file << "    \"field_params\": [" << field.get_param1() << ", " << field.get_param2() << ", " << field.get_param3() << ", " << field.get_param4() << "],\n";
+    file << "    \"field_type\": \"multi_gaussian\",\n";
+    file << "    \"num_gaussians\": " << field.get_num_gaussians() << ",\n";
+    file << "    \"gaussians\": [\n";
+    
+    const auto& gaussians = field.get_gaussians();
+    for (size_t i = 0; i < gaussians.size(); ++i) {
+        const auto& g = gaussians[i];
+        file << "      {\n";
+        file << "        \"center\": [" << g.center.getX() << ", " << g.center.getY() << "],\n";
+        file << "        \"amplitude\": " << g.amplitude << ",\n";
+        file << "        \"sigma\": " << g.sigma << "\n";
+        file << "      }";
+        if (i < gaussians.size() - 1) {
+            file << ",";
+        }
+        file << "\n";
+    }
+    
+    file << "    ],\n";
     file << "    \"timesteps\": [\n";
     first_timestep = true;
 }
