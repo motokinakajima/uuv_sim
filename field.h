@@ -10,6 +10,11 @@ public:
     double get_scalar(double x, double y) const;
     double get_scalar(const Pos2& pos) const;
 
+    double get_param1() const { return k1; }
+    double get_param2() const { return k2; }
+    double get_param3() const { return k3; }
+    double get_param4() const { return k4; }
+
 private:
     // f(x,y) = k1*x^2 + k2*xy + k3*y^2 + k4
     double k1, k2, k3, k4;

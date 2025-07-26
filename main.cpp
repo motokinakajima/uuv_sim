@@ -7,7 +7,7 @@
 int main() {
     EventController controller;
     
-    Field field(0.1, 0.0, 0.1, 0.0);
+    Field field(0.1, 0.0, 0.07, 0.0);
     controller.field = &field;
     
     Agent agent1(1, Pos2(10.0f, 10.0f), Vec2(1.0f, 0.5f));

@@ -13,7 +13,7 @@ DataLogger::~DataLogger() {
 void DataLogger::start_simulation(const Field& field) {
     file << "{\n";
     file << "  \"simulation\": {\n";
-    file << "    \"field_params\": [0.1, 0.0, 0.1, 0.0],\n";
+    file << "    \"field_params\": [" << field.get_param1() << ", " << field.get_param2() << ", " << field.get_param3() << ", " << field.get_param4() << "],\n";
     file << "    \"timesteps\": [\n";
     first_timestep = true;
 }
