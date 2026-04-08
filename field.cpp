@@ -6,12 +6,31 @@
 #include <stdexcept>
 #include <string>
 
-Field::Field(int num_gaussians) {
+Field::Field(int num_gaussians)
+    : random_engine(std::random_device{}()) {
     gaussians.reserve(num_gaussians);
     randomize_gaussians(-100.0, 100.0, 5.0, 25.0);
 }
 
-Field::Field(int num_gaussians, double min_amp, double max_amp, double min_sigma, double max_sigma) {
+Field::Field(int num_gaussians, unsigned int seed)
+    : random_engine(seed) {
+    gaussians.reserve(num_gaussians);
+    randomize_gaussians(-100.0, 100.0, 5.0, 25.0);
+}
+
+Field::Field(int num_gaussians, double min_amp, double max_amp, double min_sigma, double max_sigma)
+    : random_engine(std::random_device{}()) {
+    gaussians.reserve(num_gaussians);
+    randomize_gaussians(min_amp, max_amp, min_sigma, max_sigma);
+}
+
+Field::Field(int num_gaussians,
+             unsigned int seed,
+             double min_amp,
+             double max_amp,
+             double min_sigma,
+             double max_sigma)
+    : random_engine(seed) {
     gaussians.reserve(num_gaussians);
     randomize_gaussians(min_amp, max_amp, min_sigma, max_sigma);
 }
@@ -61,8 +80,6 @@ int Field::get_num_gaussians() const {
 }
 
 double Field::rand_range(double min, double max) {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
     std::uniform_real_distribution<double> dist(min, max);
-    return dist(gen);
+    return dist(random_engine);
 }
