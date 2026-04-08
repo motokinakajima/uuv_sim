@@ -17,7 +17,7 @@ if errorlevel 1 (
 )
 
 pushd "%ROOT_DIR%"
-python run_agent_count_experiments.py --total-runs 5000 --agent-counts 3,5,8,10,15,20,30 --worker-ratio 0.7 --csv-path experiment_results_summary.csv %*
+python run_agent_count_experiments.py --total-runs 5000 --agent-counts 3,5,8,10,15,20,30 --max-steps 7500 --worker-ratio 0.7 --csv-path experiment_results_summary.csv %*
 set "EXIT_CODE=%ERRORLEVEL%"
 popd
 

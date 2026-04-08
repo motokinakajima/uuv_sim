@@ -19,7 +19,7 @@ namespace {
 
 struct BatchOptions {
     int agent_count = 3;
-    int max_steps = 2500;
+    int max_steps = 7500;
     int window = 150;
     int hold_steps = 150;
     int num_gaussians = 20;

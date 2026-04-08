@@ -20,7 +20,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--field-seed", type=int, default=20260407)
     parser.add_argument("--base-seed", type=int, default=1)
 
-    parser.add_argument("--max-steps", type=int, default=2500)
+    parser.add_argument("--max-steps", type=int, default=7500)
     parser.add_argument("--eps-v", type=float, default=0.03)
     parser.add_argument("--eps-f", type=float, default=5e-4)
     parser.add_argument("--window", type=int, default=150)
