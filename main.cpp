@@ -27,6 +27,7 @@ struct BatchOptions {
     unsigned int field_seed = 20260407;
     double eps_v = 0.03;
     double eps_f = 5e-4;
+    bool use_speed_check = false;
     float init_pos_range = 20.0f;
     float init_vel_range = 1.0f;
 };
@@ -113,6 +114,24 @@ float parse_float_or_default(const std::unordered_map<std::string, std::string>&
     return std::stof(it->second);
 }
 
+bool parse_bool_or_default(const std::unordered_map<std::string, std::string>& args,
+                           const std::string& key,
+                           bool default_value) {
+    auto it = args.find(key);
+    if (it == args.end()) {
+        return default_value;
+    }
+
+    const std::string& value = it->second;
+    if (value == "1" || value == "true" || value == "TRUE" || value == "yes" || value == "on") {
+        return true;
+    }
+    if (value == "0" || value == "false" || value == "FALSE" || value == "no" || value == "off") {
+        return false;
+    }
+    return default_value;
+}
+
 BatchOptions options_from_args(const std::unordered_map<std::string, std::string>& args) {
     BatchOptions opt;
     opt.agent_count = parse_int_or_default(args, "--agent-count", opt.agent_count);
@@ -124,6 +143,7 @@ BatchOptions options_from_args(const std::unordered_map<std::string, std::string
     opt.field_seed = parse_uint_or_default(args, "--field-seed", opt.field_seed);
     opt.eps_v = parse_double_or_default(args, "--eps-v", opt.eps_v);
     opt.eps_f = parse_double_or_default(args, "--eps-f", opt.eps_f);
+    opt.use_speed_check = parse_bool_or_default(args, "--use-speed-check", opt.use_speed_check);
     opt.init_pos_range = parse_float_or_default(args, "--init-pos-range", opt.init_pos_range);
     opt.init_vel_range = parse_float_or_default(args, "--init-vel-range", opt.init_vel_range);
 
@@ -186,20 +206,28 @@ BatchSummary run_batch_experiment(const BatchOptions& opt) {
         controller.add_agent(agent_storage.back().get());
     }
 
+    std::vector<double> agent_personal_best;
+    agent_personal_best.reserve(controller.agents.size());
+
     double best_start = std::numeric_limits<double>::infinity();
+    double cumulative_best_start_sum = 0.0;
     for (Agent* agent : controller.agents) {
         double fv = field.get_scalar(agent->get_position());
+        agent_personal_best.push_back(fv);
+        cumulative_best_start_sum += fv;
         if (fv < best_start) {
             best_start = fv;
         }
     }
 
+    double cumulative_best_mean_now = cumulative_best_start_sum / static_cast<double>(controller.agents.size());
+
     double best_min = best_start;
     double best_now = best_start;
     double mean_now = 0.0;
     double avg_speed_now = 0.0;
-    std::deque<double> best_history;
-    best_history.push_back(best_start);
+    std::deque<double> cumulative_best_history;
+    cumulative_best_history.push_back(cumulative_best_mean_now);
 
     int hold_counter = 0;
     int steps = 0;
@@ -211,37 +239,47 @@ BatchSummary run_batch_experiment(const BatchOptions& opt) {
 
         double field_sum = 0.0;
         double speed_sum = 0.0;
+        double cumulative_best_sum = 0.0;
         best_now = std::numeric_limits<double>::infinity();
 
-        for (Agent* agent : controller.agents) {
+        for (size_t idx = 0; idx < controller.agents.size(); ++idx) {
+            Agent* agent = controller.agents[idx];
             double fv = field.get_scalar(agent->get_position());
             field_sum += fv;
             if (fv < best_now) {
                 best_now = fv;
             }
 
+            if (fv < agent_personal_best[idx]) {
+                agent_personal_best[idx] = fv;
+            }
+            cumulative_best_sum += agent_personal_best[idx];
+
             Vec2 vel = agent->get_current_velocity();
             speed_sum += vel.len();
         }
 
         mean_now = field_sum / static_cast<double>(controller.agents.size());
+        cumulative_best_mean_now = cumulative_best_sum / static_cast<double>(controller.agents.size());
         avg_speed_now = speed_sum / static_cast<double>(controller.agents.size());
         if (best_now < best_min) {
             best_min = best_now;
         }
 
-        best_history.push_back(best_now);
-        if (best_history.size() > static_cast<size_t>(opt.window + 1)) {
-            best_history.pop_front();
+        cumulative_best_history.push_back(cumulative_best_mean_now);
+        if (cumulative_best_history.size() > static_cast<size_t>(opt.window + 1)) {
+            cumulative_best_history.pop_front();
         }
 
-        bool slow_enough = avg_speed_now < opt.eps_v;
-        bool stable_best = false;
-        if (best_history.size() == static_cast<size_t>(opt.window + 1)) {
-            stable_best = std::abs(best_now - best_history.front()) < opt.eps_f;
+        bool stable_objective = false;
+        if (cumulative_best_history.size() == static_cast<size_t>(opt.window + 1)) {
+            double objective_improvement = cumulative_best_history.front() - cumulative_best_mean_now;
+            stable_objective = objective_improvement < opt.eps_f;
         }
 
-        if (slow_enough && stable_best) {
+        bool slow_enough = (!opt.use_speed_check) || (avg_speed_now < opt.eps_v);
+
+        if (stable_objective && slow_enough) {
             hold_counter++;
         } else {
             hold_counter = 0;
@@ -268,7 +306,7 @@ BatchSummary run_batch_experiment(const BatchOptions& opt) {
     summary.best_field_final = best_now;
     summary.mean_field_final = mean_now;
     summary.best_field_min_over_run = best_min;
-    summary.improvement_from_start = best_start - best_now;
+    summary.improvement_from_start = (cumulative_best_start_sum / static_cast<double>(controller.agents.size())) - cumulative_best_mean_now;
     summary.swarm_radius_final = compute_swarm_radius(controller.agents);
     summary.avg_speed_final = avg_speed_now;
     summary.runtime_ms = elapsed_ms.count();

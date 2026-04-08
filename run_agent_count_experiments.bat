@@ -4,14 +4,20 @@ setlocal EnableExtensions
 set "ROOT_DIR=%~dp0"
 if "%ROOT_DIR:~-1%"=="\" set "ROOT_DIR=%ROOT_DIR:~0,-1%"
 
-where py >nul 2>&1
+set "CONDA_BAT=%USERPROFILE%\anaconda3\condabin\conda.bat"
+if not exist "%CONDA_BAT%" (
+  echo Error: conda.bat was not found at "%CONDA_BAT%".
+  exit /b 1
+)
+
+call "%CONDA_BAT%" activate hayabusa
 if errorlevel 1 (
-  echo Error: Python launcher 'py' was not found.
+  echo Error: failed to activate conda environment "hayabusa".
   exit /b 1
 )
 
 pushd "%ROOT_DIR%"
-py run_agent_count_experiments.py --total-runs 5000 --agent-counts 3,5,8,10,15,20,30 --worker-ratio 0.7 --csv-path experiment_results_summary.csv
+python run_agent_count_experiments.py --total-runs 5000 --agent-counts 3,5,8,10,15,20,30 --worker-ratio 0.7 --csv-path experiment_results_summary.csv %*
 set "EXIT_CODE=%ERRORLEVEL%"
 popd
 
