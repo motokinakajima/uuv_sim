@@ -6,6 +6,7 @@
 #include "field.h"
 #include "neighbor_info.h"
 #include "constants.h"
+#include "behavior_params.h"
 
 // Forward declaration to avoid circular includes
 struct WorldState;
@@ -30,6 +31,9 @@ public:
     double get_max_velocity();
     void set_max_velocity(const double max_val);
 
+    static void set_behavior_params(const BehaviorParams& params);
+    static BehaviorParams get_behavior_params();
+
     double get_field_value(const Field& field);
 
 private:
@@ -38,10 +42,14 @@ private:
     Vec2 acceleration;
 
     double max_velocity = MAX_VELOCITY;
+    bool has_prev_sample = false;
+    Pos2 prev_position;
+    double prev_field_value = 0.0;
 
     std::vector<NeighborInfo> neighbor_infos;
+    static BehaviorParams behavior_params;
 
-    Vec2 make_decision();
+    Vec2 make_decision(double self_field_value);
     void update_velocity(double delta_t);
     void update_neighbors(const WorldState& world);
 };

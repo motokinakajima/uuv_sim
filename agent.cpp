@@ -3,12 +3,18 @@
 #include "neighbor_info.h"
 #include <cmath>
 
-Agent::Agent(const int id) { this->id = id; }
+BehaviorParams Agent::behavior_params;
+
+Agent::Agent(const int id) {
+    this->id = id;
+    max_velocity = behavior_params.max_velocity;
+}
 
 Agent::Agent(const int id, const Pos2& position, const Vec2& velocity) {
     this->id = id;
     this->position = position;
     this->current_velocity = velocity;
+    max_velocity = behavior_params.max_velocity;
 }
 
 void Agent::update_velocity(double delta_t) {
@@ -54,55 +60,81 @@ void Agent::set_max_velocity(const double max_val) {
     max_velocity = max_val;
 }
 
+void Agent::set_behavior_params(const BehaviorParams& params) {
+    behavior_params = params;
+}
+
+BehaviorParams Agent::get_behavior_params() {
+    return behavior_params;
+}
+
 double Agent::get_field_value(const Field& field) {
     return field.get_scalar(position);
 }
 
 void Agent::update_with_world(const WorldState& world, double delta_t) {
     update_neighbors(world);
+    double self_field_value = world.field->get_scalar(position);
     
-    Vec2 appliedForce = make_decision();
+    Vec2 appliedForce = make_decision(self_field_value);
     
     acceleration = appliedForce;
+
+    // Store one-step memory before moving for the next directional estimate.
+    prev_position = position;
+    prev_field_value = self_field_value;
+    has_prev_sample = true;
+
     update_position(delta_t);
 }
 
 
 //temporal
-Vec2 Agent::make_decision() {
+Vec2 Agent::make_decision(double self_field_value) {
     if (neighbor_infos.empty()) {
         return Vec2(0.1f, 0.1f);
     }
     
     Vec2 avoidance_force(0, 0);
-    Vec2 seek_low_field_force(0, 0);
-    
-    NeighborInfo self_info;
-    for (const auto& neighbor : neighbor_infos) {
-        if (neighbor.agent_id == id) {
-            self_info = neighbor;
-            break;
-        }
-    }
+    Vec2 quark_force(0, 0);
+    Vec2 directional_force(0, 0);
     
     for (const auto& neighbor : neighbor_infos) {
         if (neighbor.agent_id == id) continue;
         
         Vec2 direction = neighbor.relative_position;
         float distance = std::sqrt(direction.dot(direction));
+        if (distance < 1e-4f) continue;
         
-        if (distance < 20.0f) {
+        if (distance < static_cast<float>(behavior_params.avoidance_radius)) {
             Vec2 repulsion = direction * (-1.0f / (distance + 0.1f));
             avoidance_force = avoidance_force + repulsion;
         }
-        
-        if (neighbor.field_val < self_info.field_val) {
-            Vec2 attraction = direction * (0.3f / (distance + 1.0f));
-            seek_low_field_force = seek_low_field_force + attraction;
+
+        Vec2 unit_direction = direction * (1.0f / distance);
+        float saturation = distance / (distance + static_cast<float>(behavior_params.quark_saturation_distance));
+        float magnitude = static_cast<float>(behavior_params.quark_max_force) * saturation;
+        quark_force = quark_force + (unit_direction * magnitude);
+    }
+
+    if (has_prev_sample) {
+        Vec2 delta_pos = position - prev_position;
+        double step_sq = delta_pos.dot(delta_pos);
+
+        if (step_sq > behavior_params.directional_eps) {
+            double delta_f = self_field_value - prev_field_value;
+            double projection_scale = delta_f / (step_sq + behavior_params.directional_eps);
+            Vec2 projected_gradient = delta_pos * static_cast<float>(projection_scale);
+            directional_force = projected_gradient * static_cast<float>(-behavior_params.directional_derivative_gain);
         }
     }
 
-    Vec2 acc = avoidance_force * 2.0f + seek_low_field_force;
+    Vec2 drag_force = current_velocity * static_cast<float>(-behavior_params.linear_drag_gain);
+
+    Vec2 acc = avoidance_force * static_cast<float>(behavior_params.avoidance_gain)
+               + quark_force * static_cast<float>(behavior_params.quark_gain)
+               + directional_force
+               + drag_force;
     
     return acc;
 }

@@ -15,4 +15,6 @@ add_executable(uuv_sim main.cpp
         world_state.h
         neighbor_info.h
         data_logger.cpp
-        data_logger.h)
+        data_logger.h
+        behavior_params.cpp
+        behavior_params.h)

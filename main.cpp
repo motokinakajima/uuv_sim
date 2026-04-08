@@ -3,9 +3,19 @@
 #include "agent.h"
 #include "field.h"
 #include "data_logger.h"
+#include "behavior_params.h"
 
 int main() {
     EventController controller;
+
+    BehaviorParams params;
+    std::string param_error;
+    if (load_behavior_params("behavior_params.cfg", params, &param_error)) {
+        std::cout << "Loaded behavior_params.cfg" << std::endl;
+    } else {
+        std::cout << "Using default behavior params: " << param_error << std::endl;
+    }
+    Agent::set_behavior_params(params);
     
     // Create a field with 5 Gaussian peaks/valleys
     Field field(20);
