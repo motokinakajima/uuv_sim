@@ -7,6 +7,7 @@
 #include "neighbor_info.h"
 #include "constants.h"
 #include "behavior_params.h"
+#include "decision_tree.h"
 
 // Forward declaration to avoid circular includes
 struct WorldState;
@@ -32,6 +33,7 @@ public:
     void set_max_velocity(const double max_val);
 
     static void set_behavior_params(const BehaviorParams& params);
+    static void set_decision_tree(const DecisionTree* tree);
     static BehaviorParams get_behavior_params();
 
     double get_field_value(const Field& field);
@@ -40,6 +42,7 @@ private:
     Pos2 position;
     Vec2 current_velocity;
     Vec2 acceleration;
+    BehaviorParams current_behavior_params;
 
     double max_velocity = MAX_VELOCITY;
     bool has_prev_sample = false;
@@ -48,6 +51,7 @@ private:
 
     std::vector<NeighborInfo> neighbor_infos;
     static BehaviorParams behavior_params;
+    static const DecisionTree* decision_tree;
 
     Vec2 make_decision(double self_field_value);
     void update_velocity(double delta_t);

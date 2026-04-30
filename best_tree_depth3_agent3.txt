@@ -1,0 +1,15 @@
+0,split,speed,2.930332,1,2
+1,split,nearest_neighbor_distance,10.944239,3,4
+2,split,neighbor_count,11.715744,5,6
+3,split,speed,0.311608,7,8
+4,split,field_delta,0.289984,9,10
+5,split,speed,5.000000,11,12
+6,split,field_delta,46.715278,13,14
+7,leaf,-1,0,-1,1
+8,leaf,-1,0,-1,-1
+9,leaf,-1,1,1,1
+10,leaf,1,0,0,-1
+11,leaf,0,0,-1,-1
+12,leaf,0,-1,0,-1
+13,leaf,-1,-1,1,1
+14,leaf,0,1,1,1

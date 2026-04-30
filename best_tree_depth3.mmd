@@ -1,0 +1,30 @@
+flowchart TD
+    n0["speed < 3.7339"]
+    n1["neighbor_count < 12.0000"]
+    n2["neighbor_count < 0.9170"]
+    n3["nearest_neighbor_distance < 7.9005"]
+    n4["mean_neighbor_distance < 40.9957"]
+    n5["speed < 1.9960"]
+    n6["neighbor_count < 0.0768"]
+    n7["0 avoidance<br/>+ quark<br/>- gradient<br/>- drag"]
+    n8["+ avoidance<br/>+ quark<br/>0 gradient<br/>- drag"]
+    n9["0 avoidance<br/>+ quark<br/>0 gradient<br/>+ drag"]
+    n10["0 avoidance<br/>+ quark<br/>+ gradient<br/>- drag"]
+    n11["+ avoidance<br/>+ quark<br/>+ gradient<br/>+ drag"]
+    n12["0 avoidance<br/>- quark<br/>+ gradient<br/>+ drag"]
+    n13["0 avoidance<br/>0 quark<br/>0 gradient<br/>- drag"]
+    n14["+ avoidance<br/>0 quark<br/>+ gradient<br/>- drag"]
+    n0 -- yes --> n1
+    n0 -- no --> n2
+    n1 -- yes --> n3
+    n1 -- no --> n4
+    n2 -- yes --> n5
+    n2 -- no --> n6
+    n3 -- yes --> n7
+    n3 -- no --> n8
+    n4 -- yes --> n9
+    n4 -- no --> n10
+    n5 -- yes --> n11
+    n5 -- no --> n12
+    n6 -- yes --> n13
+    n6 -- no --> n14

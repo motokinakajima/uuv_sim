@@ -14,6 +14,7 @@
 #include "field.h"
 #include "data_logger.h"
 #include "behavior_params.h"
+#include "decision_tree.h"
 
 namespace {
 
@@ -49,8 +50,13 @@ struct BatchSummary {
     double runtime_ms = 0.0;
 };
 
-std::unordered_map<std::string, std::string> parse_args(int argc, char** argv) {
-    std::unordered_map<std::string, std::string> args;
+struct ParsedArgs {
+    std::unordered_map<std::string, std::string> values;
+    std::unordered_map<std::string, std::vector<std::string>> multi_values;
+};
+
+ParsedArgs parse_args(int argc, char** argv) {
+    ParsedArgs args;
     for (int i = 1; i < argc; ++i) {
         std::string key = argv[i];
         if (key.rfind("--", 0) != 0) {
@@ -65,60 +71,61 @@ std::unordered_map<std::string, std::string> parse_args(int argc, char** argv) {
                 ++i;
             }
         }
-        args[key] = value;
+        args.values[key] = value;
+        args.multi_values[key].push_back(value);
     }
     return args;
 }
 
-bool has_flag(const std::unordered_map<std::string, std::string>& args, const std::string& key) {
-    return args.find(key) != args.end();
+bool has_flag(const ParsedArgs& args, const std::string& key) {
+    return args.values.find(key) != args.values.end();
 }
 
-int parse_int_or_default(const std::unordered_map<std::string, std::string>& args,
+int parse_int_or_default(const ParsedArgs& args,
                          const std::string& key,
                          int default_value) {
-    auto it = args.find(key);
-    if (it == args.end()) {
+    auto it = args.values.find(key);
+    if (it == args.values.end()) {
         return default_value;
     }
     return std::stoi(it->second);
 }
 
-unsigned int parse_uint_or_default(const std::unordered_map<std::string, std::string>& args,
+unsigned int parse_uint_or_default(const ParsedArgs& args,
                                    const std::string& key,
                                    unsigned int default_value) {
-    auto it = args.find(key);
-    if (it == args.end()) {
+    auto it = args.values.find(key);
+    if (it == args.values.end()) {
         return default_value;
     }
     return static_cast<unsigned int>(std::stoul(it->second));
 }
 
-double parse_double_or_default(const std::unordered_map<std::string, std::string>& args,
+double parse_double_or_default(const ParsedArgs& args,
                                const std::string& key,
                                double default_value) {
-    auto it = args.find(key);
-    if (it == args.end()) {
+    auto it = args.values.find(key);
+    if (it == args.values.end()) {
         return default_value;
     }
     return std::stod(it->second);
 }
 
-float parse_float_or_default(const std::unordered_map<std::string, std::string>& args,
+float parse_float_or_default(const ParsedArgs& args,
                              const std::string& key,
                              float default_value) {
-    auto it = args.find(key);
-    if (it == args.end()) {
+    auto it = args.values.find(key);
+    if (it == args.values.end()) {
         return default_value;
     }
     return std::stof(it->second);
 }
 
-bool parse_bool_or_default(const std::unordered_map<std::string, std::string>& args,
+bool parse_bool_or_default(const ParsedArgs& args,
                            const std::string& key,
                            bool default_value) {
-    auto it = args.find(key);
-    if (it == args.end()) {
+    auto it = args.values.find(key);
+    if (it == args.values.end()) {
         return default_value;
     }
 
@@ -132,7 +139,40 @@ bool parse_bool_or_default(const std::unordered_map<std::string, std::string>& a
     return default_value;
 }
 
-BatchOptions options_from_args(const std::unordered_map<std::string, std::string>& args) {
+std::vector<std::string> get_multi_values(const ParsedArgs& args, const std::string& key) {
+    auto it = args.multi_values.find(key);
+    if (it == args.multi_values.end()) {
+        return {};
+    }
+    return it->second;
+}
+
+bool build_decision_tree_from_args(const ParsedArgs& args,
+                                   DecisionTree* out_tree,
+                                   std::string* error_message) {
+    const std::vector<std::string> node_specs = get_multi_values(args, "--tree-node");
+    if (node_specs.empty()) {
+        *out_tree = DecisionTree::default_tree();
+        return true;
+    }
+
+    int root_id = 0;
+    auto root_it = args.values.find("--tree-root");
+    if (root_it != args.values.end()) {
+        try {
+            root_id = std::stoi(root_it->second);
+        } catch (const std::exception&) {
+            if (error_message != nullptr) {
+                *error_message = "Invalid value for --tree-root: " + root_it->second;
+            }
+            return false;
+        }
+    }
+
+    return out_tree->build_from_specs(node_specs, root_id, error_message);
+}
+
+BatchOptions options_from_args(const ParsedArgs& args) {
     BatchOptions opt;
     opt.agent_count = parse_int_or_default(args, "--agent-count", opt.agent_count);
     opt.max_steps = parse_int_or_default(args, "--max-steps", opt.max_steps);
@@ -352,6 +392,19 @@ int main(int argc, char** argv) {
 
     Agent::set_behavior_params(params);
 
+    DecisionTree decision_tree;
+    std::string tree_error;
+    if (!build_decision_tree_from_args(args, &decision_tree, &tree_error)) {
+        if (!batch_mode) {
+            std::cout << "Using default decision tree: " << tree_error << std::endl;
+        }
+        decision_tree = DecisionTree::default_tree();
+    } else if (!batch_mode && !has_flag(args, "--tree-node")) {
+        std::cout << "Using default decision tree" << std::endl;
+    }
+
+    Agent::set_decision_tree(&decision_tree);
+
     if (batch_mode) {
         BatchOptions opt = options_from_args(args);
         BatchSummary summary = run_batch_experiment(opt);
@@ -368,10 +421,14 @@ int main(int argc, char** argv) {
     Agent agent1(1, Pos2(10.0f, 10.0f), Vec2(1.0f, 0.5f));
     Agent agent2(2, Pos2(15.0f, 12.0f), Vec2(-0.5f, 1.0f));
     Agent agent3(3, Pos2(8.0f, 15.0f), Vec2(0.8f, -0.3f));
+    Agent agent4(4, Pos2(12.0f, 8.0f), Vec2(-0.3f, 0.7f));
+    Agent agent5(5, Pos2(14.0f, 14.0f), Vec2(0.5f, -0.5f));
     
     controller.add_agent(&agent1);
     controller.add_agent(&agent2);
     controller.add_agent(&agent3);
+    controller.add_agent(&agent4);
+    controller.add_agent(&agent5);
 
     std::cout << "Starting simulation..." << std::endl;
 

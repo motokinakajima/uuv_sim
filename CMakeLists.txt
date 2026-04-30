@@ -8,6 +8,8 @@ add_executable(uuv_sim main.cpp
         vec2.h
         agent.cpp
         agent.h
+        decision_tree.cpp
+        decision_tree.h
         field.cpp
         field.h
         event_controller.cpp

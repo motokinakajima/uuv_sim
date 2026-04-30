@@ -1,13 +1,17 @@
 #include "agent.h"
 #include "world_state.h"
 #include "neighbor_info.h"
+#include <algorithm>
 #include <cmath>
+#include <limits>
 
 BehaviorParams Agent::behavior_params;
+const DecisionTree* Agent::decision_tree = nullptr;
 
 Agent::Agent(const int id) {
     this->id = id;
     max_velocity = behavior_params.max_velocity;
+    current_behavior_params = behavior_params;
 }
 
 Agent::Agent(const int id, const Pos2& position, const Vec2& velocity) {
@@ -15,6 +19,7 @@ Agent::Agent(const int id, const Pos2& position, const Vec2& velocity) {
     this->position = position;
     this->current_velocity = velocity;
     max_velocity = behavior_params.max_velocity;
+    current_behavior_params = behavior_params;
 }
 
 void Agent::update_velocity(double delta_t) {
@@ -64,6 +69,10 @@ void Agent::set_behavior_params(const BehaviorParams& params) {
     behavior_params = params;
 }
 
+void Agent::set_decision_tree(const DecisionTree* tree) {
+    decision_tree = tree;
+}
+
 BehaviorParams Agent::get_behavior_params() {
     return behavior_params;
 }
@@ -75,6 +84,73 @@ double Agent::get_field_value(const Field& field) {
 void Agent::update_with_world(const WorldState& world, double delta_t) {
     update_neighbors(world);
     double self_field_value = world.field->get_scalar(position);
+
+    TreeObservation observation;
+    observation.speed_magnitude = current_velocity.len();
+    observation.acceleration_magnitude = acceleration.len();
+    observation.field_delta = has_prev_sample ? (self_field_value - prev_field_value) : 0.0;
+
+    int neighbor_count = 0;
+    double distance_sum = 0.0;
+    double nearest_neighbor_distance = std::numeric_limits<double>::max();
+    for (const NeighborInfo& neighbor : neighbor_infos) {
+        if (neighbor.agent_id == id) {
+            continue;
+        }
+
+        Vec2 direction = neighbor.relative_position;
+        double distance = std::sqrt(direction.dot(direction));
+        if (distance < 1e-9) {
+            continue;
+        }
+
+        neighbor_count++;
+        distance_sum += distance;
+        if (distance < nearest_neighbor_distance) {
+            nearest_neighbor_distance = distance;
+        }
+    }
+
+    observation.neighbor_count = static_cast<double>(neighbor_count);
+    observation.nearest_neighbor_distance = (neighbor_count > 0)
+        ? nearest_neighbor_distance
+        : std::numeric_limits<double>::max();
+    observation.mean_neighbor_distance = (neighbor_count > 0)
+        ? (distance_sum / static_cast<double>(neighbor_count))
+        : std::numeric_limits<double>::max();
+
+    if (decision_tree != nullptr && !decision_tree->empty()) {
+        const std::array<GainAction, 4> actions = decision_tree->evaluate(observation);
+
+        auto apply_gain_action = [](double& gain, GainAction action) {
+            constexpr double decrease_factor = 0.98;
+            constexpr double increase_factor = 1.02;
+            constexpr double min_gain = 0.05;
+            constexpr double max_gain = 8.0;
+
+            switch (action) {
+                case GainAction::Decrease:
+                    gain *= decrease_factor;
+                    break;
+                case GainAction::Increase:
+                    gain *= increase_factor;
+                    break;
+                case GainAction::Hold:
+                    break;
+            }
+
+            if (gain < min_gain) {
+                gain = min_gain;
+            } else if (gain > max_gain) {
+                gain = max_gain;
+            }
+        };
+
+        apply_gain_action(current_behavior_params.avoidance_gain, actions[0]);
+        apply_gain_action(current_behavior_params.quark_gain, actions[1]);
+        apply_gain_action(current_behavior_params.directional_derivative_gain, actions[2]);
+        apply_gain_action(current_behavior_params.linear_drag_gain, actions[3]);
+    }
     
     Vec2 appliedForce = make_decision(self_field_value);
     
@@ -91,10 +167,6 @@ void Agent::update_with_world(const WorldState& world, double delta_t) {
 
 //temporal
 Vec2 Agent::make_decision(double self_field_value) {
-    if (neighbor_infos.empty()) {
-        return Vec2(0.1f, 0.1f);
-    }
-    
     Vec2 avoidance_force(0, 0);
     Vec2 quark_force(0, 0);
     Vec2 directional_force(0, 0);
@@ -106,14 +178,14 @@ Vec2 Agent::make_decision(double self_field_value) {
         float distance = std::sqrt(direction.dot(direction));
         if (distance < 1e-4f) continue;
         
-        if (distance < static_cast<float>(behavior_params.avoidance_radius)) {
+        if (distance < static_cast<float>(current_behavior_params.avoidance_radius)) {
             Vec2 repulsion = direction * (-1.0f / (distance + 0.1f));
             avoidance_force = avoidance_force + repulsion;
         }
 
         Vec2 unit_direction = direction * (1.0f / distance);
-        float saturation = distance / (distance + static_cast<float>(behavior_params.quark_saturation_distance));
-        float magnitude = static_cast<float>(behavior_params.quark_max_force) * saturation;
+        float saturation = distance / (distance + static_cast<float>(current_behavior_params.quark_saturation_distance));
+        float magnitude = static_cast<float>(current_behavior_params.quark_max_force) * saturation;
         quark_force = quark_force + (unit_direction * magnitude);
     }
 
@@ -121,18 +193,18 @@ Vec2 Agent::make_decision(double self_field_value) {
         Vec2 delta_pos = position - prev_position;
         double step_sq = delta_pos.dot(delta_pos);
 
-        if (step_sq > behavior_params.directional_eps) {
+        if (step_sq > current_behavior_params.directional_eps) {
             double delta_f = self_field_value - prev_field_value;
-            double projection_scale = delta_f / (step_sq + behavior_params.directional_eps);
+            double projection_scale = delta_f / (step_sq + current_behavior_params.directional_eps);
             Vec2 projected_gradient = delta_pos * static_cast<float>(projection_scale);
-            directional_force = projected_gradient * static_cast<float>(-behavior_params.directional_derivative_gain);
+            directional_force = projected_gradient * static_cast<float>(-current_behavior_params.directional_derivative_gain);
         }
     }
 
-    Vec2 drag_force = current_velocity * static_cast<float>(-behavior_params.linear_drag_gain);
+    Vec2 drag_force = current_velocity * static_cast<float>(-current_behavior_params.linear_drag_gain);
 
-    Vec2 acc = avoidance_force * static_cast<float>(behavior_params.avoidance_gain)
-               + quark_force * static_cast<float>(behavior_params.quark_gain)
+    Vec2 acc = avoidance_force * static_cast<float>(current_behavior_params.avoidance_gain)
+               + quark_force * static_cast<float>(current_behavior_params.quark_gain)
                + directional_force
                + drag_force;
     
