@@ -178,7 +178,7 @@ def run_one_validation_run(
     tree_specs: list[str],
     run_id: int,
 ) -> dict:
-    seed = 42
+    seed = 42 + run_id - 1
     cmd = build_batch_command(exe_path, args, tree_specs, seed)
 
     started = time.time()
@@ -244,7 +244,7 @@ def main() -> int:
     print(f"[setup] executable: {exe_path}")
     print(f"[setup] tree_file: {tree_path}")
     print(f"[setup] runs: {args.runs}")
-    print("[setup] seed: 42 (fixed)")
+    print("[setup] seed: 42..N (varies per run)")
     print(f"[setup] field_seed: {args.field_seed}")
 
     csv_path = (root / args.output_csv).resolve()
@@ -258,7 +258,7 @@ def main() -> int:
         if args.workers <= 1:
             for run_id in range(1, args.runs + 1):
                 if not args.quiet:
-                    print(f"[run {run_id}/{args.runs}] seed=42 field_seed={args.field_seed}")
+                    print(f"[run {run_id}/{args.runs}] seed={42 + run_id - 1} field_seed={args.field_seed}")
                 try:
                     row = run_one_validation_run(exe_path, args, tree_specs, run_id)
                     completed_rows.append(row)

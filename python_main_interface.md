@@ -208,7 +208,7 @@ python3 tree_ga_depth3.py \
 
 - `validate_tree_depth3.py`
 
-デフォルトでは `best_tree_depth3.txt` を読み、**seed=42 固定**かつ **field_seed=42 固定**で 4500 回 batch 実行し、各 run の summary を 1 行ずつ CSV に保存します。
+デフォルトでは `best_tree_depth3.txt` を読み、**field_seed=42 固定**で 4500 回 batch 実行し、各 run の seed は `42, 43, 44, ...` と変えながら、各 run の summary を 1 行ずつ CSV に保存します。
 
 ### 実行例
 
