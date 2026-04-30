@@ -77,6 +77,22 @@ BehaviorParams Agent::get_behavior_params() {
     return behavior_params;
 }
 
+BehaviorParams Agent::get_current_behavior_params() const {
+    return current_behavior_params;
+}
+
+TreeObservation Agent::get_last_tree_observation() const {
+    return last_tree_observation;
+}
+
+std::array<GainAction, 4> Agent::get_last_tree_actions() const {
+    return last_tree_actions;
+}
+
+double Agent::get_last_field_value() const {
+    return last_field_value;
+}
+
 double Agent::get_field_value(const Field& field) {
     return field.get_scalar(position);
 }
@@ -119,8 +135,18 @@ void Agent::update_with_world(const WorldState& world, double delta_t) {
         ? (distance_sum / static_cast<double>(neighbor_count))
         : std::numeric_limits<double>::max();
 
+    last_tree_observation = observation;
+    last_field_value = self_field_value;
+    last_tree_actions = {
+        GainAction::Hold,
+        GainAction::Hold,
+        GainAction::Hold,
+        GainAction::Hold,
+    };
+
     if (decision_tree != nullptr && !decision_tree->empty()) {
         const std::array<GainAction, 4> actions = decision_tree->evaluate(observation);
+        last_tree_actions = actions;
 
         auto apply_gain_action = [](double& gain, GainAction action) {
             constexpr double decrease_factor = 0.98;

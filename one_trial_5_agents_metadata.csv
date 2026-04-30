@@ -1,0 +1,2 @@
+agent_count,seed,field_seed,max_steps,num_gaussians
+5,42,42,2000,20

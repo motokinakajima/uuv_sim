@@ -15,6 +15,7 @@
 #include "data_logger.h"
 #include "behavior_params.h"
 #include "decision_tree.h"
+#include "trial_csv_logger.h"
 
 namespace {
 
@@ -31,6 +32,7 @@ struct BatchOptions {
     bool use_speed_check = false;
     float init_pos_range = 20.0f;
     float init_vel_range = 1.0f;
+    std::string csv_prefix;
 };
 
 struct BatchSummary {
@@ -187,6 +189,11 @@ BatchOptions options_from_args(const ParsedArgs& args) {
     opt.init_pos_range = parse_float_or_default(args, "--init-pos-range", opt.init_pos_range);
     opt.init_vel_range = parse_float_or_default(args, "--init-vel-range", opt.init_vel_range);
 
+    auto csv_prefix_it = args.values.find("--csv-prefix");
+    if (csv_prefix_it != args.values.end()) {
+        opt.csv_prefix = csv_prefix_it->second;
+    }
+
     opt.agent_count = std::max(1, opt.agent_count);
     opt.max_steps = std::max(1, opt.max_steps);
     opt.window = std::max(1, opt.window);
@@ -269,6 +276,12 @@ BatchSummary run_batch_experiment(const BatchOptions& opt) {
     std::deque<double> cumulative_best_history;
     cumulative_best_history.push_back(cumulative_best_mean_now);
 
+    std::unique_ptr<TrialCsvLogger> csv_logger;
+    if (!opt.csv_prefix.empty()) {
+        csv_logger = std::make_unique<TrialCsvLogger>(opt.csv_prefix);
+        csv_logger->start(field, opt.agent_count, opt.seed, opt.field_seed, opt.max_steps, opt.num_gaussians);
+    }
+
     int hold_counter = 0;
     int steps = 0;
     int converged = 0;
@@ -311,6 +324,19 @@ BatchSummary run_batch_experiment(const BatchOptions& opt) {
             cumulative_best_history.pop_front();
         }
 
+        if (csv_logger != nullptr) {
+            csv_logger->log_step(
+                steps,
+                controller.get_t(),
+                controller.agents,
+                best_now,
+                mean_now,
+                cumulative_best_mean_now,
+                avg_speed_now,
+                compute_swarm_radius(controller.agents)
+            );
+        }
+
         bool stable_objective = false;
         if (cumulative_best_history.size() == static_cast<size_t>(opt.window + 1)) {
             double objective_improvement = cumulative_best_history.front() - cumulative_best_mean_now;
@@ -350,6 +376,11 @@ BatchSummary run_batch_experiment(const BatchOptions& opt) {
     summary.swarm_radius_final = compute_swarm_radius(controller.agents);
     summary.avg_speed_final = avg_speed_now;
     summary.runtime_ms = elapsed_ms.count();
+
+    if (csv_logger != nullptr) {
+        csv_logger->finish();
+    }
+
     return summary;
 }
 

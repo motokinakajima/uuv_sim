@@ -35,6 +35,11 @@ public:
     static void set_behavior_params(const BehaviorParams& params);
     static void set_decision_tree(const DecisionTree* tree);
     static BehaviorParams get_behavior_params();
+    BehaviorParams get_current_behavior_params() const;
+
+    TreeObservation get_last_tree_observation() const;
+    std::array<GainAction, 4> get_last_tree_actions() const;
+    double get_last_field_value() const;
 
     double get_field_value(const Field& field);
 
@@ -48,6 +53,15 @@ private:
     bool has_prev_sample = false;
     Pos2 prev_position;
     double prev_field_value = 0.0;
+
+    TreeObservation last_tree_observation;
+    std::array<GainAction, 4> last_tree_actions{
+        GainAction::Hold,
+        GainAction::Hold,
+        GainAction::Hold,
+        GainAction::Hold,
+    };
+    double last_field_value = 0.0;
 
     std::vector<NeighborInfo> neighbor_infos;
     static BehaviorParams behavior_params;
