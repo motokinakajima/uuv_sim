@@ -15,7 +15,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run parallel fixed-field experiments and append per-run summaries to CSV."
     )
-    parser.add_argument("--total-runs", type=int, default=5000)
+    parser.add_argument("--total-runs", type=int, default=25000)
     parser.add_argument("--agent-counts", type=str, default="3,5,8,10,15,20,30")
     parser.add_argument("--field-seed", type=int, default=20260407)
     parser.add_argument("--base-seed", type=int, default=1)
